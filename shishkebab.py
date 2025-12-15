@@ -1,9 +1,9 @@
 
 import random
-from sense_hat import SenseHat
+
+
 from pygame.rect import Rect
 from pgzero.actor import Actor  # Import Actor for Pygame Zero
-from pgzero.builtins import screen  # Import screen for Pygame Zero
 # 'screen' is provided by Pygame Zero automatically when running with pgzrun
 
 # Pygame Zero config
@@ -17,9 +17,6 @@ gravity = 0.3
 jump_strength = -6
 score = 0
 game_over = False
-
-# Sense HAT
-sense = SenseHat()
 
 # Astronaut setup (Actor and Rect are provided by Pygame Zero when run via pgzrun)
 astronaut = Actor('astronaut')  # ensure images/astronaut.png exists
@@ -66,15 +63,10 @@ def draw():
 
 def update():
     global velocity, game_over, score
-
-    # ---------------- Sense HAT joystick input ----------------
-    # Use 'up' or 'middle' press to flap / restart
-    for e in sense.stick.get_events():
-        if e.pressed:
-            if not game_over and e.direction in ('up', 'middle'):
-                velocity = jump_strength
-            elif game_over and e.direction in ('up', 'middle'):
-                reset_game()
+                if not game_over and (keyboard.space or keyboard.up):
+                        velocity = jump_strength
+                elif game_over and (keyboard.space or keyboard.up):
+                            reset_game()
 
     if not game_over:
         # Gravity & movement
@@ -106,4 +98,5 @@ def update():
         # Check bounds
         if astronaut.y > HEIGHT or astronaut.y < 0:
             game_over = True
+
 
