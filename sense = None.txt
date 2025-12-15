@@ -1,0 +1,11 @@
+sense = None
+
+try:
+    from sense_hat import SenseHat
+    sense = SenseHat()
+except Exception:
+    try:
+        from sense_emu import SenseHat
+        sense = SenseHat()
+    except Exception:
+        sense = None
