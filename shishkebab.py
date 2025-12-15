@@ -19,12 +19,11 @@ jump_strength = -6
 score = 0
 game_over = False
 
-# Astronaut setup
-astronaut = Actor('astronaut')  # ensure images/astronaut.png exists
-astronaut.pos = (75, HEIGHT // 2)
+# Astronaut setup: delay Actor creation until display is initialized.
+astronaut = None  # will be set in on_start()
 velocity = 0
 
-# Input flags (we'll set these via on_key_down)
+# Input flags (set via on_key_down)
 wants_jump = False
 wants_reset = False
 
@@ -46,10 +45,22 @@ for i in range(3):
     pipes.append(_create_pipe_pair(WIDTH + i * 200))
 
 
+def on_start():
+    """
+    Called by Pygame Zero after display is initialized.
+    We safely create image-backed Actors here.
+    """
+    global astronaut, velocity, score, game_over
+    astronaut = Actor('astronaut')  # ensure images/astronaut.png exists
+    astronaut.pos = (75, HEIGHT // 2)
+    velocity = 0
+    score = 0
+    game_over = False
+
+
 def reset_game():
     """Reset all game state to start a new round."""
-    global velocity, score, game_over, pipes, wants_jump, wants_reset
-    astronaut.pos = (75, HEIGHT // 2)
+    global velocity, score, game_over, pipes, wants_jump, wants_reset, astronaut
     velocity = 0
     score = 0
     game_over = False
@@ -58,6 +69,11 @@ def reset_game():
     pipes = []
     for i in range(3):
         pipes.append(_create_pipe_pair(WIDTH + i * 200))
+    # Re-center astronaut (Actor exists after on_start)
+    if astronaut is None:
+        # If someone runs update before on_start for any reason, guard it.
+        return
+    astronaut.pos = (75, HEIGHT // 2)
 
 
 def draw():
@@ -68,7 +84,9 @@ def draw():
     screen.clear()
     screen.blit('background', (0, 0))  # ensure images/background.png exists
 
-    astronaut.draw()
+    # Astronaut may be None for the very first frame if on_start hasn't run yet
+    if astronaut is not None:
+        astronaut.draw()
 
     for pipe in pipes:
         screen.draw.filled_rect(pipe['top'], 'green')
@@ -89,6 +107,10 @@ def update():
     Pygame Zero update() hook.
     """
     global velocity, game_over, score, wants_jump, wants_reset
+
+    # If astronaut isn't ready yet, wait for on_start
+    if astronaut is None:
+        return
 
     # Apply queued input (set in on_key_down)
     if not game_over and wants_jump:
@@ -134,14 +156,17 @@ def update():
 def on_key_down(key):
     """
     Called by Pygame Zero when a key is pressed.
-    We avoid using 'keyboard.space' in update() to sidestep the error you saw.
+    We avoid using 'keyboard.space' in update() to sidestep earlier issues.
     """
     global wants_jump, wants_reset
     if key in (keys.SPACE, keys.UP):
-        # If game is running, this triggers a jump.
-        # If game_over, this triggers a reset.
         if game_over:
             wants_reset = True
         else:
             wants_jump = True
-# End of shishkebab.py
+
+
+# Optional: allow running the file directly (python shishkebab.py)
+## This boots pgzrun so display is initialized properly.
+if __name__ == "__main__":
+    import pgzrun
