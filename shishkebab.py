@@ -4,7 +4,8 @@
 
 import random
 from pygame import Rect
-from pgzero.actor import Actor  # Actor is provided by Pygame Zero
+from pgzero.actor import Actor
+from pgzero.keyboard import keys  # for key constants in on_key_down
 
 # Pygame Zero config
 WIDTH = 400
@@ -18,11 +19,14 @@ jump_strength = -6
 score = 0
 game_over = False
 
-# Astronaut setup (Actor is provided by Pygame Zero when run via pgzrun)
-# Ensure images/astronaut.png exists
-astronaut = Actor('astronaut')
+# Astronaut setup
+astronaut = Actor('astronaut')  # ensure images/astronaut.png exists
 astronaut.pos = (75, HEIGHT // 2)
 velocity = 0
+
+# Input flags (we'll set these via on_key_down)
+wants_jump = False
+wants_reset = False
 
 # Pipes setup
 pipes = []
@@ -44,11 +48,13 @@ for i in range(3):
 
 def reset_game():
     """Reset all game state to start a new round."""
-    global velocity, score, game_over, pipes
+    global velocity, score, game_over, pipes, wants_jump, wants_reset
     astronaut.pos = (75, HEIGHT // 2)
     velocity = 0
     score = 0
     game_over = False
+    wants_jump = False
+    wants_reset = False
     pipes = []
     for i in range(3):
         pipes.append(_create_pipe_pair(WIDTH + i * 200))
@@ -60,24 +66,20 @@ def draw():
     'screen' is injected by Pygame Zero; no import needed.
     """
     screen.clear()
-    # Ensure images/background.png exists
-    screen.blit('background', (0, 0))
+    screen.blit('background', (0, 0))  # ensure images/background.png exists
 
-    # Draw astronaut
     astronaut.draw()
 
-    # Draw pipes
     for pipe in pipes:
         screen.draw.filled_rect(pipe['top'], 'green')
         screen.draw.filled_rect(pipe['bottom'], 'green')
 
-    # HUD
     screen.draw.text(f"Score: {score}", (10, 10), fontsize=40, color="white")
 
     if game_over:
         screen.draw.text("GAME OVER", center=(WIDTH // 2, HEIGHT // 2),
                          fontsize=60, color="red")
-        screen.draw.text("Press SPACE/UP to restart",
+        screen.draw.text("Press SPACE or UP to restart",
                          center=(WIDTH // 2, HEIGHT // 2 + 50),
                          fontsize=28, color="white")
 
@@ -85,14 +87,14 @@ def draw():
 def update():
     """
     Pygame Zero update() hook.
-    'keyboard' is injected by Pygame Zero; no import needed.
     """
-    global velocity, game_over, score
+    global velocity, game_over, score, wants_jump, wants_reset
 
-    # Jump / restart controls
-    if not game_over and (keyboard.space or keyboard.up):
+    # Apply queued input (set in on_key_down)
+    if not game_over and wants_jump:
         velocity = jump_strength
-    elif game_over and (keyboard.space or keyboard.up):
+        wants_jump = False  # consume jump
+    elif game_over and wants_reset:
         reset_game()
         return
 
@@ -109,7 +111,6 @@ def update():
         # Add new pipes and remove old ones
         if pipes and pipes[0]['top'].x < -70:
             pipes.pop(0)
-            # When a pipe leaves the screen, count a point and add a new pipe
             score += 1
             pipes.append(_create_pipe_pair(WIDTH))
 
@@ -128,4 +129,19 @@ def update():
         # Check bounds
         if astronaut.y > HEIGHT or astronaut.y < 0:
             game_over = True
-``
+
+
+def on_key_down(key):
+    """
+    Called by Pygame Zero when a key is pressed.
+    We avoid using 'keyboard.space' in update() to sidestep the error you saw.
+    """
+    global wants_jump, wants_reset
+    if key in (keys.SPACE, keys.UP):
+        # If game is running, this triggers a jump.
+        # If game_over, this triggers a reset.
+        if game_over:
+            wants_reset = True
+        else:
+            wants_jump = True
+# End of shishkebab.py
