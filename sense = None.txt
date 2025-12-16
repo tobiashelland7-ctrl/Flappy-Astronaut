@@ -1,22 +1,11 @@
-pygame 2.6.1 (SDL 2.32.4, Python 3.13.5)
-Hello from the pygame community. https://www.pygame.org/contribute.html
-Traceback (most recent call last):
-  File "/home/tobhel10/Flappy-Astronaut/shishkebab.py", line 23, in <module>
-    astronaut = Actor('astronaut')  # ensure images/astronaut.png exists
-  File "/usr/lib/python3/dist-packages/pgzero/actor.py", line 88, in __init__
-    self.image = image
-    ^^^^^^^^^^
-  File "/usr/lib/python3/dist-packages/pgzero/actor.py", line 103, in __setattr__
-    return object.__setattr__(self, attr, value)
-           ~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^
-  File "/usr/lib/python3/dist-packages/pgzero/actor.py", line 218, in image
-    self._orig_surf = self._surf = loaders.images.load(image)
-                                   ~~~~~~~~~~~~~~~~~~~^^^^^^^
-  File "/usr/lib/python3/dist-packages/pgzero/loaders.py", line 138, in load
-    res = self.cache[key] = self._load(p, *args, **kwargs)
-                            ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^
-  File "/usr/lib/python3/dist-packages/pgzero/loaders.py", line 160, in _load
-    return pygame.image.load(path).convert_alpha()
-           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
-pygame.error: cannot convert without pygame.display initialized
-
+ File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/usr/lib/python3/dist-packages/pgzero/__main__.py", line 3, in <module>
+    main()
+    ~~~~^^
+  File "/usr/lib/python3/dist-packages/pgzero/runner.py", line 79, in main
+    code = compile(src, os.path.basename(path), 'exec', dont_inherit=True)
+  File "shishkebab.py", line 155
+    ``
+    ^
+SyntaxError: invalid syntax
