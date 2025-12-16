@@ -1,172 +1,155 @@
 
 # shishkebab.py
-# Pygame Zero game (Flappy-style). Run with: pgzrun shishkebab.py
+# Flappy-style game in Pygame Zero, no external images required.
+# Run with: python -m pgzero shishkebab.py  (Geany Execute: python -m pgzero "%f")
 
 import random
 from pygame import Rect
-from pgzero.actor import Actor
-from pgzero.keyboard import keys  # for key constants in on_key_down
+from pgzero.keyboard import keys
 
-# Pygame Zero config
+# ------------------------------------------------------------
+# Window size
 WIDTH = 400
 HEIGHT = 600
 
-# Game variables
-gap = 150
-pipe_speed = 2
-gravity = 0.3
-jump_strength = -6
+# Game variables (kept names close to your original file)
+gap = 160                 # vertical gap between pipes
+pipe_speed = 2.5
+gravity = 0.35
+jump_strength = -6.5
 score = 0
 game_over = False
+velocity = 0.0
 
-# Astronaut setup: delay Actor creation until display is initialized.
-astronaut = None  # will be set in on_start()
-velocity = 0
+# Player (replaces Actor('astronaut') with a simple circle)
+player_x = 75
+player_y = HEIGHT // 2
+player_radius = 18
 
-# Input flags (set via on_key_down)
-wants_jump = False
-wants_reset = False
-
-# Pipes setup
+# Pipes: list of dicts with 'top' and 'bottom' Rects
 pipes = []
 
 
 def _create_pipe_pair(x_start: int):
     """Create a top/bottom pipe Rect pair starting at x_start."""
-    top_height = random.randint(100, 400)
+    # keep opening within screen and leave some margin for top/bottom
+    top_height = random.randint(80, HEIGHT - gap - 120)
     return {
         'top': Rect((x_start, 0), (70, top_height)),
-        'bottom': Rect((x_start, top_height + gap), (70, HEIGHT - top_height - gap))
+        'bottom': Rect((x_start, top_height + gap), (70, HEIGHT - (top_height + gap)))
     }
 
 
-# Initialize a few pipes off-screen to the right
-for i in range(3):
-    pipes.append(_create_pipe_pair(WIDTH + i * 200))
+def _reset_pipes():
+    """Initialize three pipes spaced to the right off-screen."""
+    global pipes
+    pipes = []
+    for i in range(3):
+        pipes.append(_create_pipe_pair(WIDTH + i * 200))
 
 
-def on_start():
-    """
-    Called by Pygame Zero after display is initialized.
-    We safely create image-backed Actors here.
-    """
-    global astronaut, velocity, score, game_over
-    astronaut = Actor('astronaut')  # ensure images/astronaut.png exists
-    astronaut.pos = (75, HEIGHT // 2)
-    velocity = 0
-    score = 0
-    game_over = False
+# Initialize pipes
+_reset_pipes()
 
 
 def reset_game():
     """Reset all game state to start a new round."""
-    global velocity, score, game_over, pipes, wants_jump, wants_reset, astronaut
-    velocity = 0
+    global velocity, score, game_over, pipes, player_y
+    velocity = 0.0
     score = 0
     game_over = False
-    wants_jump = False
-    wants_reset = False
-    pipes = []
-    for i in range(3):
-        pipes.append(_create_pipe_pair(WIDTH + i * 200))
-    # Re-center astronaut (Actor exists after on_start)
-    if astronaut is None:
-        # If someone runs update before on_start for any reason, guard it.
-        return
-    astronaut.pos = (75, HEIGHT // 2)
+    player_y = HEIGHT // 2
+    _reset_pipes()
 
 
 def draw():
-    """
-    Pygame Zero draw() hook.
-    'screen' is injected by Pygame Zero; no import needed.
-    """
+    """Pygame Zero draw() hook."""
     screen.clear()
-    screen.blit('background', (0, 0))  # ensure images/background.png exists
 
-    # Astronaut may be None for the very first frame if on_start hasn't run yet
-    if astronaut is not None:
-        astronaut.draw()
+    # --- Background: starry sky + grass ---
+    # Sky
+    screen.draw.filled_rect(Rect((0, 0), (WIDTH, HEIGHT - 80)), (11, 13, 26))  # dark blue
+    # Stars (procedural)
+    for x in range(10, WIDTH, 40):
+        for y in range(10, HEIGHT - 110, 60):
+            screen.draw.filled_circle((x + (y % 13), y), 1, "white")
+    # Grass
+    screen.draw.filled_rect(Rect((0, HEIGHT - 80), (WIDTH, 80)), (34, 139, 34))  # green
 
+    # --- Pipes ---
     for pipe in pipes:
-        screen.draw.filled_rect(pipe['top'], 'green')
-        screen.draw.filled_rect(pipe['bottom'], 'green')
+        screen.draw.filled_rect(pipe['top'], (0, 180, 0))
+        screen.draw.filled_rect(pipe['bottom'], (0, 180, 0))
 
-    screen.draw.text(f"Score: {score}", (10, 10), fontsize=40, color="white")
+    # --- Player (astronaut placeholder: white circle) ---
+    screen.draw.filled_circle((player_x, int(player_y)), player_radius, "white")
+    # small visor stripe
+    screen.draw.line(
+        (player_x - 10, int(player_y) - 3),
+        (player_x + 10, int(player_y) - 3),
+        (180, 220, 255)
+    )
+
+    # --- HUD ---
+    screen.draw.text(f"Score: {score}", (10, 10), fontsize=36, color="yellow")
 
     if game_over:
-        screen.draw.text("GAME OVER", center=(WIDTH // 2, HEIGHT // 2),
-                         fontsize=60, color="red")
-        screen.draw.text("Press SPACE or UP to restart",
-                         center=(WIDTH // 2, HEIGHT // 2 + 50),
+        screen.draw.text("GAME OVER", center=(WIDTH // 2, HEIGHT // 2 - 20),
+                         fontsize=56, color="red")
+        screen.draw.text("Press SPACE / UP to restart",
+                         center=(WIDTH // 2, HEIGHT // 2 + 30),
                          fontsize=28, color="white")
 
 
 def update():
-    """
-    Pygame Zero update() hook.
-    """
-    global velocity, game_over, score, wants_jump, wants_reset
+    """Pygame Zero update() hook — physics, pipes, collision."""
+    global player_y, velocity, game_over, score
 
-    # If astronaut isn't ready yet, wait for on_start
-    if astronaut is None:
+    if game_over:
         return
 
-    # Apply queued input (set in on_key_down)
-    if not game_over and wants_jump:
-        velocity = jump_strength
-        wants_jump = False  # consume jump
-    elif game_over and wants_reset:
-        reset_game()
-        return
+    # Gravity
+    velocity += gravity
+    player_y += velocity
 
-    if not game_over:
-        # Gravity & movement
-        velocity += gravity
-        astronaut.y += velocity
+    # Move pipes left
+    for pipe in pipes:
+        pipe['top'].x -= pipe_speed
+        pipe['bottom'].x -= pipe_speed
 
-        # Move pipes
-        for pipe in pipes:
-            pipe['top'].x -= pipe_speed
-            pipe['bottom'].x -= pipe_speed
+    # Recycle pipe + score when the first pipe leaves the screen
+    if pipes and pipes[0]['top'].x < -70:
+        pipes.pop(0)
+        score += 1
+        pipes.append(_create_pipe_pair(WIDTH + 40))
 
-        # Add new pipes and remove old ones
-        if pipes and pipes[0]['top'].x < -70:
-            pipes.pop(0)
-            score += 1
-            pipes.append(_create_pipe_pair(WIDTH))
-
-        # Collision detection
-        astronaut_rect = Rect(
-            (astronaut.x - astronaut.width // 2, astronaut.y - astronaut.height // 2),
-            (astronaut.width, astronaut.height)
-        )
-
-        for pipe in pipes:
-            if (astronaut_rect.colliderect(pipe['top']) or
-                    astronaut_rect.colliderect(pipe['bottom'])):
-                game_over = True
-                break
-
-        # Check bounds
-        if astronaut.y > HEIGHT or astronaut.y < 0:
+    # Collision detection (circle-rect overlap approximation via bounding box)
+    player_rect = Rect(
+        (player_x - player_radius, int(player_y) - player_radius),
+        (player_radius * 2, player_radius * 2)
+    )
+    for pipe in pipes:
+        if player_rect.colliderect(pipe['top']) or player_rect.colliderect(pipe['bottom']):
             game_over = True
+            break
+
+    # Bounds check (top/bottom of screen)
+    if player_y < 0 or player_y > HEIGHT:
+        game_over = True
 
 
 def on_key_down(key):
-    """
-    Called by Pygame Zero when a key is pressed.
-    We avoid using 'keyboard.space' in update() to sidestep earlier issues.
-    """
-    global wants_jump, wants_reset
+    """Handle jump and restart."""
+    global velocity, game_over
     if key in (keys.SPACE, keys.UP):
         if game_over:
-            wants_reset = True
+            reset_game()
         else:
-            wants_jump = True
+            velocity = jump_strength
 
 
-# Optional: allow running the file directly (python shishkebab.py)
-## This boots pgzrun so display is initialized properly.
+# Allow running with plain Python too
 if __name__ == "__main__":
     import pgzrun
+    pgzrun.go()
+``
