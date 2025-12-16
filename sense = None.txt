@@ -1,44 +1,4 @@
-Hello from the pygame community. https://www.pygame.org/contribute.html
-Traceback (most recent call last):
-  File "<frozen runpy>", line 198, in _run_module_as_main
-  File "<frozen runpy>", line 88, in _run_code
-  File "/usr/lib/python3/dist-packages/pgzero/__main__.py", line 3, in <module>
-    main()
-    ~~~~^^
-  File "/usr/lib/python3/dist-packages/pgzero/runner.py", line 93, in main
-    run_mod(mod)
-    ~~~~~~~^^^^^
-  File "/usr/lib/python3/dist-packages/pgzero/runner.py", line 113, in run_mod
-    PGZeroGame(mod).run()
-    ~~~~~~~~~~~~~~~~~~~^^
-  File "/usr/lib/python3/dist-packages/pgzero/game.py", line 217, in run
-    self.mainloop()
-    ~~~~~~~~~~~~~^^
-  File "/usr/lib/python3/dist-packages/pgzero/game.py", line 247, in mainloop
-    self.dispatch_event(event)
-    ~~~~~~~~~~~~~~~~~~~^^^^^^^
-  File "/usr/lib/python3/dist-packages/pgzero/game.py", line 172, in dispatch_event
-    handler(event)
-    ~~~~~~~^^^^^^^
-  File "/usr/lib/python3/dist-packages/pgzero/game.py", line 164, in new_handler
-    return handler(**prepped)
-  File "shishkebab.py", line 174, in on_key_down
-    reset_game()
-    ~~~~~~~~~~^^
-  File "shishkebab.py", line 83, in reset_game
-    player_sprite = Actor(PLAYER_IMAGE)
-  File "/usr/lib/python3/dist-packages/pgzero/actor.py", line 88, in __init__
-    self.image = image
-    ^^^^^^^^^^
-  File "/usr/lib/python3/dist-packages/pgzero/actor.py", line 103, in __setattr__
-    return object.__setattr__(self, attr, value)
-           ~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^
-  File "/usr/lib/python3/dist-packages/pgzero/actor.py", line 218, in image
-    self._orig_surf = self._surf = loaders.images.load(image)
-                                   ~~~~~~~~~~~~~~~~~~~^^^^^^^
-  File "/usr/lib/python3/dist-packages/pgzero/loaders.py", line 129, in load
-    raise KeyError(
-    ...<5 lines>...
-    )
-KeyError: "No image found like 'player'. Are you sure the image exists?"
-
+diameter = player_radius * 2
+        scaled = pygame.transform.smoothscale(player_sprite._orig_surf, (diameter, diameter))
+        player_sprite._orig_surf = scaled
+        player_sprite        player_sprite._surf = scaled
