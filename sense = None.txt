@@ -1,4 +1,6 @@
-diameter = player_radius * 2
-        scaled = pygame.transform.smoothscale(player_sprite._orig_surf, (diameter, diameter))
-        player_sprite._orig_surf = scaled
-        player_sprite        player_sprite._surf = scaled
+def _reset_pipes():
+    """Initialize three pipes spaced to the right off-screen."""
+    global pipes
+    pipes = []
+    for i in range(3):
+        pipes.append(_create_pipe_pair(WIDTH + i * PIPE_SPACING))
