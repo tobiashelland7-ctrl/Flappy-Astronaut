@@ -6,7 +6,7 @@ import random
 import pygame
 from pygame import Rect
 from pgzero.keyboard import keys
-from pgzero.actor import Actor  # Actor import for sprite support
+from pgzero.actor import Actor  # used to load the image
 
 # ------------------------------------------------------------
 # Window size
@@ -33,7 +33,8 @@ player_radius = 18  # ball radius; sprite will be scaled to diameter = 2 * radiu
 # Sprite toggle
 USE_SPRITE = True         # set False to revert to circle
 PLAYER_IMAGE = 'player'   # expects images/player.png
-player_sprite = None      # created in reset_game()
+player_sprite = None      # Actor (for loading & position)
+player_surf = None        # scaled pygame.Surface we actually blit
 
 # Pipes: list of dicts with 'top' and 'bottom' Rects
 pipes = []
@@ -56,29 +57,25 @@ def _reset_pipes():
         pipes.append(_create_pipe_pair(WIDTH + i * PIPE_SPACING))
 
 
-def _scale_actor_to_diameter(actor: Actor, diameter_px: int):
+def _build_scaled_sprite():
     """
-    Scale the Actor's bitmap to a square of 'diameter_px' using rotozoom,
-    keep alpha intact, and keep its center position.
+    Load the sprite via Actor, scale to ball diameter, and produce
+    a surface we can blit directly. Keeps transparency intact.
     """
-    size = max(1, int(diameter_px))  # guard against zero/negative
-    surf = actor._surf
-    w = surf.get_width()
-    if w <= 0:
-        return
-    scale = float(size) / float(w)
-    # Scale current surface
-    scaled = pygame.transform.rotozoom(surf, 0, scale)
-    # Update internal surfaces used by Actor.draw()
-    actor._surf = scaled
-    actor._orig_surf = scaled
-    # Re-assign same position to keep center consistent
-    actor.pos = actor.pos
+    global player_sprite, player_surf
+    player_sprite = Actor(PLAYER_IMAGE)
+    diameter = max(1, int(player_radius * 2))
+    # Scale the actor's surface to our target diameter and ensure alpha is preserved
+    src = player_sprite._surf
+    scaled = pygame.transform.smoothscale(src, (diameter, diameter)).convert_alpha()
+    player_surf = scaled
+    # Keep the actor's position so we can reuse (centered blit)
+    player_sprite.pos = (player_x, player_y)
 
 
 def reset_game():
     """Reset all game state to start a new round."""
-    global velocity, score, game_over, pipes, player_y, player_sprite
+    global velocity, score, game_over, pipes, player_y, player_sprite, player_surf
     velocity = 0.0
     score = 0
     game_over = False
@@ -86,12 +83,10 @@ def reset_game():
     _reset_pipes()
 
     if USE_SPRITE:
-        player_sprite = Actor(PLAYER_IMAGE)
-        # Scale sprite to match the ball diameter
-        _scale_actor_to_diameter(player_sprite, player_radius * 2)
-        player_sprite.pos = (player_x, player_y)
+        _build_scaled_sprite()
     else:
         player_sprite = None
+        player_surf = None
 
 
 def draw():
@@ -111,8 +106,10 @@ def draw():
         screen.draw.filled_rect(pipe['bottom'], (0, 180, 0))
 
     # --- Player (image or circle) ---
-    if USE_SPRITE and player_sprite is not None:
-        player_sprite.draw()
+    if USE_SPRITE and player_surf is not None and player_sprite is not None:
+        # Blit the scaled surface centered at (player_x, player_y)
+        rect = player_surf.get_rect(center=(player_x, int(player_y)))
+        screen.surface.blit(player_surf, rect)
     else:
         screen.draw.filled_circle((player_x, int(player_y)), player_radius, "white")
         screen.draw.line(
@@ -143,9 +140,9 @@ def update():
     velocity += gravity
     player_y += velocity
 
-    # Keep sprite in sync with physics
+    # Keep sprite center in sync with physics (if using)
     if USE_SPRITE and player_sprite is not None:
-        player_sprite.pos = (player_x, player_y)
+        player_sprite.pos = (player_x, player_y)  # pos is still our logical center
 
     # Move pipes left
     for pipe in pipes:
@@ -184,10 +181,10 @@ def on_key_down(key):
             velocity = jump_strength
 
 
-# Initialize everything (pipes + sprite + state) once at startup
+## Initialize everything (pipes + sprite + state) once at startup
 reset_game()
 
 # Entry point for plain Python if needed.
 if __name__ == "__main__":
     import pgzrun
-   
+
