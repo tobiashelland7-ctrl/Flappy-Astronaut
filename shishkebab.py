@@ -1,7 +1,6 @@
 
 # shishkebab.py
 # Flappy-style game in Pygame Zero, no external images required.
-# Run with: python -m pgzero shishkebab.py  (Geany Execute: python -m pgzero "%f")
 
 import random
 from pygame import Rect
@@ -12,7 +11,7 @@ from pgzero.keyboard import keys
 WIDTH = 400
 HEIGHT = 600
 
-# Game variables (kept names close to your original file)
+# Game variables (kept names close to your earlier file)
 gap = 160                 # vertical gap between pipes
 pipe_speed = 2.5
 gravity = 0.35
@@ -21,7 +20,10 @@ score = 0
 game_over = False
 velocity = 0.0
 
-# Player (replaces Actor('astronaut') with a simple circle)
+# NEW: horizontal distance between successive pipes
+PIPE_SPACING = 280
+
+# Player (simple circle instead of image)
 player_x = 75
 player_y = HEIGHT // 2
 player_radius = 18
@@ -45,7 +47,7 @@ def _reset_pipes():
     global pipes
     pipes = []
     for i in range(3):
-        pipes.append(_create_pipe_pair(WIDTH + i * 200))
+        pipes.append(_create_pipe_pair(WIDTH + i * PIPE_SPACING))
 
 
 # Initialize pipes
@@ -121,7 +123,8 @@ def update():
     if pipes and pipes[0]['top'].x < -70:
         pipes.pop(0)
         score += 1
-        pipes.append(_create_pipe_pair(WIDTH + 40))
+        last_x = pipes [-1] ['top'].x if pipes else WIDTH
+        pipes.append(_create_pipe_pair(last_x + PIPE_SPACING))
 
     # Collision detection (circle-rect overlap approximation via bounding box)
     player_rect = Rect(
@@ -143,13 +146,11 @@ def on_key_down(key):
     global velocity, game_over
     if key in (keys.SPACE, keys.UP):
         if game_over:
-            reset_game()
+                       reset_game()
         else:
             velocity = jump_strength
 
 
-# Allow running with plain Python too
+# Plain Python entrypoint to start pgzrun if needed.
 if __name__ == "__main__":
     import pgzrun
-    pgzrun.go()
-``
