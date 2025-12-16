@@ -1,13 +1,193 @@
-pygame 2.6.1 (SDL 2.32.4, Python 3.13.5)
-Hello from the pygame community. https://www.pygame.org/contribute.html
-Traceback (most recent call last):
-  File "<frozen runpy>", line 198, in _run_module_as_main
-  File "<frozen runpy>", line 88, in _run_code
-  File "/usr/lib/python3/dist-packages/pgzero/__main__.py", line 3, in <module>
-    main()
-    ~~~~^^
-  File "/usr/lib/python3/dist-packages/pgzero/runner.py", line 79, in main
-    code = compile(src, os.path.basename(path), 'exec', dont_inherit=True)
-  File "shishkebab.py", line 1
-    shishkebab.py
-IndentationError: unexpected indent
+
+# shishkebab.py
+# Flappy-style game in Pygame Zero, optional player sprite.
+
+import random
+import pygame
+from pygame import Rect
+from pgzero.keyboard import keys
+from pgzero.actor import Actor  # Actor import for sprite support
+
+# ------------------------------------------------------------
+# Window size
+WIDTH = 400
+HEIGHT = 600
+
+# Game variables
+gap = 160                 # vertical gap between pipes
+pipe_speed = 2.5
+gravity = 0.35
+jump_strength = -6.5
+score = 0
+game_over = False
+velocity = 0.0
+
+# Horizontal distance between successive pipes
+PIPE_SPACING = 280
+
+# Player baseline (circle)
+player_x = 75
+player_y = HEIGHT // 2
+player_radius = 18  # ball radius; sprite will be scaled to diameter = 2 * radius
+
+# Sprite toggle
+USE_SPRITE = True         # set False to revert to circle
+PLAYER_IMAGE = 'player'   # expects images/player.png
+player_sprite = None      # created in reset_game()
+
+# Pipes: list of dicts with 'top' and 'bottom' Rects
+pipes = []
+
+
+def _create_pipe_pair(x_start: int):
+    """Create a top/bottom pipe Rect pair starting at x_start."""
+    top_height = random.randint(80, HEIGHT - gap - 120)
+    return {
+        'top': Rect((x_start, 0), (70, top_height)),
+        'bottom': Rect((x_start, top_height + gap), (70, HEIGHT - (top_height + gap)))
+    }
+
+
+def _reset_pipes():
+    """Initialize three pipes spaced to the right off-screen."""
+    global pipes
+    pipes = []
+    for i in range(3):
+        pipes.append(_create_pipe_pair(WIDTH + i * PIPE_SPACING))
+
+
+def _scale_actor_to_diameter(actor: Actor, diameter_px: int):
+    """
+    Scale the Actor's bitmap to a square of 'diameter_px' using rotozoom,
+    keep alpha intact, and keep its center position.
+    """
+    size = max(1, int(diameter_px))  # guard against zero/negative
+    surf = actor._surf
+    w = surf.get_width()
+    if w <= 0:
+        return
+    scale = float(size) / float(w)
+    # Scale current surface
+    scaled = pygame.transform.rotozoom(surf, 0, scale)
+    # Update internal surfaces used by Actor.draw()
+    actor._surf = scaled
+    actor._orig_surf = scaled
+    # Re-assign same position to keep center consistent
+    actor.pos = actor.pos
+
+
+def reset_game():
+    """Reset all game state to start a new round."""
+    global velocity, score, game_over, pipes, player_y, player_sprite
+    velocity = 0.0
+    score = 0
+    game_over = False
+    player_y = HEIGHT // 2
+    _reset_pipes()
+
+    if USE_SPRITE:
+        player_sprite = Actor(PLAYER_IMAGE)
+        # Scale sprite to match the ball diameter
+        _scale_actor_to_diameter(player_sprite, player_radius * 2)
+        player_sprite.pos = (player_x, player_y)
+    else:
+        player_sprite = None
+
+
+def draw():
+    """Pygame Zero draw() hook."""
+    screen.clear()
+
+    # --- Background: starry sky + grass ---
+    screen.draw.filled_rect(Rect((0, 0), (WIDTH, HEIGHT - 80)), (11, 13, 26))  # sky
+    for x in range(10, WIDTH, 40):
+        for y in range(10, HEIGHT - 110, 60):
+            screen.draw.filled_circle((x + (y % 13), y), 1, "white")            # stars
+    screen.draw.filled_rect(Rect((0, HEIGHT - 80), (WIDTH, 80)), (34, 139, 34))  # grass
+
+    # --- Pipes ---
+    for pipe in pipes:
+        screen.draw.filled_rect(pipe['top'], (0, 180, 0))
+        screen.draw.filled_rect(pipe['bottom'], (0, 180, 0))
+
+    # --- Player (image or circle) ---
+    if USE_SPRITE and player_sprite is not None:
+        player_sprite.draw()
+    else:
+        screen.draw.filled_circle((player_x, int(player_y)), player_radius, "white")
+        screen.draw.line(
+            (player_x - 10, int(player_y) - 3),
+            (player_x + 10, int(player_y) - 3),
+            (180, 220, 255)
+        )
+
+    # --- HUD ---
+    screen.draw.text(f"Score: {score}", (10, 10), fontsize=36, color="yellow")
+
+    if game_over:
+        screen.draw.text("GAME OVER", center=(WIDTH // 2, HEIGHT // 2 - 20),
+                         fontsize=56, color="red")
+        screen.draw.text("Press SPACE / UP to restart",
+                         center=(WIDTH // 2, HEIGHT // 2 + 30),
+                         fontsize=28, color="white")
+
+
+def update():
+    """Pygame Zero update() hook — physics, pipes, collision."""
+    global player_y, velocity, game_over, score, pipes, player_sprite
+
+    if game_over:
+        return
+
+    # Gravity
+    velocity += gravity
+    player_y += velocity
+
+    # Keep sprite in sync with physics
+    if USE_SPRITE and player_sprite is not None:
+        player_sprite.pos = (player_x, player_y)
+
+    # Move pipes left
+    for pipe in pipes:
+        pipe['top'].x -= pipe_speed
+        pipe['bottom'].x -= pipe_speed
+
+    # Recycle pipe + score when the first pipe leaves the screen
+    if pipes and pipes[0]['top'].x < -70:
+        pipes.pop(0)
+        score += 1
+        last_x = pipes[-1]['top'].x if pipes else WIDTH
+        pipes.append(_create_pipe_pair(last_x + PIPE_SPACING))
+
+    # Collision detection (circle-rect overlap approximation via bounding box)
+    player_rect = Rect(
+        (player_x - player_radius, int(player_y) - player_radius),
+        (player_radius * 2, player_radius * 2)
+    )
+    for pipe in pipes:
+        if player_rect.colliderect(pipe['top']) or player_rect.colliderect(pipe['bottom']):
+            game_over = True
+            break
+
+    # Bounds check (top/bottom of screen)
+    if player_y < 0 or player_y > HEIGHT:
+        game_over = True
+
+
+def on_key_down(key):
+    """Handle jump and restart."""
+    global velocity, game_over
+    if key in (keys.SPACE, keys.UP):
+        if game_over:
+            reset_game()
+        else:
+            velocity = jump_strength
+
+
+# Initialize everything (pipes + sprite + state) once at startup
+reset_game()
+
+# Entry point for plain Python if needed.
+if __name__ == "__main__":
+    import pgzrun
+   
