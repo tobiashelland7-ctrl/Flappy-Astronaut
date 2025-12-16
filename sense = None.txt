@@ -5,6 +5,7 @@
 import random
 from pygame import Rect
 from pgzero.keyboard import keys
+from pgzero.actor import Actor  # <-- ADDED: Actor import for sprite support
 
 # ------------------------------------------------------------
 # Window size
@@ -12,7 +13,7 @@ WIDTH = 400
 HEIGHT = 600
 
 # Game variables (kept names close to your earlier file)
-gap = 160                 # vertical gap between pipes
+gap = 160  # vertical gap between pipes
 pipe_speed = 2.5
 gravity = 0.35
 jump_strength = -6.5
@@ -20,10 +21,18 @@ score = 0
 game_over = False
 velocity = 0.0
 
+# NEW: horizontal distance between successive pipes
+PIPE_SPACING = 280
+
 # Player (simple circle instead of image)
 player_x = 75
 player_y = HEIGHT // 2
 player_radius = 18
+
+# --- SPRITE TOGGLE (minimal) ---
+USE_SPRITE = True         # set False to revert to circle
+PLAYER_IMAGE = 'player'   # expects images/player.png
+player_sprite = None      # handle created in reset_game()
 
 # Pipes: list of dicts with 'top' and 'bottom' Rects
 pipes = []
@@ -44,7 +53,7 @@ def _reset_pipes():
     global pipes
     pipes = []
     for i in range(3):
-        pipes.append(_create_pipe_pair(WIDTH + i * 200))
+        pipes.append(_create_pipe_pair(WIDTH + i * PIPE_SPACING))
 
 
 # Initialize pipes
@@ -53,12 +62,19 @@ _reset_pipes()
 
 def reset_game():
     """Reset all game state to start a new round."""
-    global velocity, score, game_over, pipes, player_y
+    global velocity, score, game_over, pipes, player_y, player_sprite
     velocity = 0.0
     score = 0
     game_over = False
     player_y = HEIGHT // 2
     _reset_pipes()
+
+    # --- Minimal sprite setup (no optional extras) ---
+    if USE_SPRITE:
+        player_sprite = Actor(PLAYER_IMAGE)
+        player_sprite.pos = (player_x, player_y)
+    else:
+        player_sprite = None
 
 
 def draw():
@@ -80,14 +96,17 @@ def draw():
         screen.draw.filled_rect(pipe['top'], (0, 180, 0))
         screen.draw.filled_rect(pipe['bottom'], (0, 180, 0))
 
-    # --- Player (astronaut placeholder: white circle) ---
-    screen.draw.filled_circle((player_x, int(player_y)), player_radius, "white")
-    # small visor stripe
-    screen.draw.line(
-        (player_x - 10, int(player_y) - 3),
-        (player_x + 10, int(player_y) - 3),
-        (180, 220, 255)
-    )
+    # --- Player (image or circle) ---
+    if USE_SPRITE and player_sprite is not None:
+        player_sprite.draw()
+    else:
+        screen.draw.filled_circle((player_x, int(player_y)), player_radius, "white")
+        # small visor stripe
+        screen.draw.line(
+            (player_x - 10, int(player_y) - 3),
+            (player_x + 10, int(player_y) - 3),
+            (180, 220, 255)
+        )
 
     # --- HUD ---
     screen.draw.text(f"Score: {score}", (10, 10), fontsize=36, color="yellow")
@@ -111,6 +130,10 @@ def update():
     velocity += gravity
     player_y += velocity
 
+    # --- Keep sprite in sync (minimal) ---
+    if USE_SPRITE and player_sprite is not None:
+        player_sprite.pos = (player_x, player_y)
+
     # Move pipes left
     for pipe in pipes:
         pipe['top'].x -= pipe_speed
@@ -120,7 +143,8 @@ def update():
     if pipes and pipes[0]['top'].x < -70:
         pipes.pop(0)
         score += 1
-        pipes.append(_create_pipe_pair(WIDTH + 40))
+        last_x = pipes[-1]['top'].x if pipes else WIDTH
+        pipes.append(_create_pipe_pair(last_x + PIPE_SPACING))
 
     # Collision detection (circle-rect overlap approximation via bounding box)
     player_rect = Rect(
@@ -142,7 +166,7 @@ def on_key_down(key):
     global velocity, game_over
     if key in (keys.SPACE, keys.UP):
         if game_over:
-                       reset_game()
+            reset_game()
         else:
             velocity = jump_strength
 
@@ -150,3 +174,5 @@ def on_key_down(key):
 # Plain Python entrypoint to start pgzrun if needed.
 if __name__ == "__main__":
     import pgzrun
+    pgzrun.go()
+
